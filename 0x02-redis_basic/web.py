@@ -32,3 +32,6 @@ def count_page_access(method):
 def get_page(url: str) -> str:
     ''' fetch content from url '''
     return requests.get(url).text
+
+if __name__ == "__main__":
+    get_page('http://slowwly.robertomurray.co.uk')
