@@ -1,32 +1,40 @@
 #!/usr/bin/env python3
-""" Redis Module """
-
-from functools import wraps
-import redis
+"""contains a function that obtains html from web"""
 import requests
+import redis
+import functools
 from typing import Callable
 
-redis_ = redis.Redis()
 
-
-def count_requests(method: Callable) -> Callable:
-    """ Decortator for counting """
-    @wraps(method)
-    def wrapper(url):  # sourcery skip: use-named-expression
-        """ Wrapper for decorator """
-        redis_.incr(f"count:{url}")
-        cached_html = redis_.get(f"cached:{url}")
-        if cached_html:
-            return cached_html.decode('utf-8')
-        html = method(url)
-        redis_.setex(f"cached:{url}", 10, html)
-        return html
-
+def count_calls(fn: Callable) -> Callable:
+    """counts call to a function"""
+    @functools.wraps(fn)
+    def wrapper(url, *args, **kwargs):
+        r = redis.Redis()
+        key = 'count:' + url
+        r.incr(key)
+        return fn(url, *args, **kwargs)
     return wrapper
 
 
-@count_requests
+def cache_fn(fn: Callable) -> Callable:
+    """caches the function call"""
+    @functools.wraps(fn)
+    def wrapper(url, *args, **kwargs):
+        r = redis.Redis()
+        key = 'content:' + url
+        cache = r.get(key)
+        if cache:
+            return cache
+        result = fn(url, *args, **kwargs)
+        r.setex('content:' + url, 10, result)
+        return result
+    return wrapper
+
+
+@count_calls
+@cache_fn
 def get_page(url: str) -> str:
-    """ Obtain the HTML content of a  URL """
-    req = requests.get(url)
-    return req.text
+    """obtains the HTML content of a particular URL and returns it"""
+    res = requests.get(url)
+    return res.text
