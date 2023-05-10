@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-''' 
-create a web cache
+''' A module with tools for request caching and tracking.
 '''
 import requests
 import redis
