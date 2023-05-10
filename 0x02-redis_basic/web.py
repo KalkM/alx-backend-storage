@@ -1,40 +1,22 @@
 #!/usr/bin/env python3
-"""contains a function that obtains html from web"""
-import requests
+""" Implementing an expiring web cache and tracker
+    obtain the HTML content of a particular URL and returns it """
 import redis
-import functools
-from typing import Callable
+import requests
+r = redis.Redis()
+count = 0
 
 
-def count_calls(fn: Callable) -> Callable:
-    """counts call to a function"""
-    @functools.wraps(fn)
-    def wrapper(url, *args, **kwargs):
-        r = redis.Redis()
-        key = 'count:' + url
-        r.incr(key)
-        return fn(url, *args, **kwargs)
-    return wrapper
-
-
-def cache_fn(fn: Callable) -> Callable:
-    """caches the function call"""
-    @functools.wraps(fn)
-    def wrapper(url, *args, **kwargs):
-        r = redis.Redis()
-        key = 'content:' + url
-        cache = r.get(key)
-        if cache:
-            return cache
-        result = fn(url, *args, **kwargs)
-        r.setex('content:' + url, 10, result)
-        return result
-    return wrapper
-
-
-@count_calls
-@cache_fn
 def get_page(url: str) -> str:
-    """obtains the HTML content of a particular URL and returns it"""
-    res = requests.get(url)
-    return res.text
+    """ track how many times a particular URL was accessed in the key
+        count:{url} and cache the result with an expiration time of 10 seconds """
+    r.set(f"cached:{url}", count)
+    resp = requests.get(url)
+    r.incr(f"count:{url}")
+    r.setex(f"cached:{url}", 10, r.get(f"cached:{url}"))
+    return resp.text
+
+
+if __name__ == "__main__":
+    get_page('http://slowwly.robertomurray.co.uk')
+    
